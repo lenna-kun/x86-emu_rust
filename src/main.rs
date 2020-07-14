@@ -35,20 +35,6 @@ impl fmt::Display for Register {
     }
 }
 
-impl<T> std::ops::Index<Register> for [T] {
-    type Output = T;
-
-    fn index(&self, index: Register) -> &Self::Output {
-        &self[index as usize]
-    }
-}
-
-impl<T> std::ops::IndexMut<Register> for [T] {
-    fn index_mut(&mut self, index: Register) -> &mut Self::Output {
-        &mut self[index as usize]
-    }
-}
-
 struct Emulator {
     registers: [u32; Register::RegisterCount as usize],
     eflags: u32,
@@ -61,7 +47,7 @@ impl Emulator {
         Emulator {
             registers: {
                 let mut regs = [0; Register::RegisterCount as usize];
-                regs[Register::ESP] = esp;
+                regs[Register::ESP as usize] = esp;
                 regs
             },
             eflags: 0,
