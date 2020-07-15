@@ -91,13 +91,13 @@ impl Emulator {
         self.eip = (self.eip as i32 + diff + 2) as u32; // be careful if diff minus
     }
 }
-fn init_instructions() -> Vec<Option<Box<dyn Fn(&mut Emulator)>>> {
-    let mut instructions: Vec<Option<Box<dyn Fn(&mut Emulator)>>> = (0..256).map(|_| None).collect();
+fn init_instructions() -> Vec<Option<fn(&mut Emulator)>> {
+    let mut instructions: Vec<Option<fn(&mut Emulator)>> = (0..256).map(|_| None).collect();
 
     for i in 0..8 {
-        instructions[0xB8 + i] = Some(Box::new(Emulator::mov_r32_imm32));
+        instructions[0xB8 + i] = Some(Emulator::mov_r32_imm32);
     }
-    instructions[0xEB] = Some(Box::new(Emulator::short_jump));
+    instructions[0xEB] = Some(Emulator::short_jump);
 
     instructions
 }
