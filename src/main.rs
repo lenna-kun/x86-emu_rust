@@ -130,7 +130,7 @@ fn main() {
         let opcode = emu.get_code8(0);
         debug!("EIP = {:0x}, Opcode = {:02x}", emu.eip, opcode);
 
-        if let Some(instruction) = &instructions[opcode as usize] {
+        if let Some(instruction) = instructions[opcode as usize] {
             instruction(&mut emu);
         } else {
             error!("Not Implemented: {:0x}", opcode);
