@@ -79,6 +79,10 @@ impl Emulator {
         ret
     }
 
+    fn get_sign_code32(&self, index: usize) -> i32 {
+        self.get_code32(index) as i32
+    }
+
     fn mov_r32_imm32(&mut self) {
         let reg = self.get_code8(0) - 0xB8;
         let value = self.get_code32(1);
@@ -90,6 +94,11 @@ impl Emulator {
         let diff = self.get_sign_code8(1) as i32;
         self.eip = (self.eip as i32 + diff + 2) as u32; // be careful if diff minus
     }
+
+    fn near_jump(&mut self) {
+        let diff = self.get_sign_code32(1);
+        self.eip = (self.eip as i32 + diff + 5) as u32
+    }
 }
 fn init_instructions() -> Vec<Option<fn(&mut Emulator)>> {
     let mut instructions: Vec<Option<fn(&mut Emulator)>> = (0..256).map(|_| None).collect();
@@ -97,6 +106,7 @@ fn init_instructions() -> Vec<Option<fn(&mut Emulator)>> {
     for i in 0..8 {
         instructions[0xB8 + i] = Some(Emulator::mov_r32_imm32);
     }
+    instructions[0xE9] = Some(Emulator::near_jump);
     instructions[0xEB] = Some(Emulator::short_jump);
 
     instructions
@@ -112,12 +122,12 @@ fn main() {
         process::exit(1);
     }
 
-    let mut emu = Emulator::create(MEMORY_SIZE, 0x0000, 0x7c00);
+    let mut emu = Emulator::create(MEMORY_SIZE, 0x7c00, 0x7c00);
 
     let filename = &args[1];
     if let Ok(f) = File::open(filename) {
         f.bytes().enumerate().for_each(|(i, byte)| {
-            emu.memory[i] = byte.unwrap();
+            emu.memory[i + 0x7c00] = byte.unwrap();
         });
     } else {
         error!("Failed to open {}.", filename);
