@@ -3,6 +3,7 @@ use log::*;
 use std::process;
 
 use super::Emulator;
+use super::Register;
 
 #[repr(C)]
 pub union Disp {
@@ -92,6 +93,7 @@ impl Emulator {
         self.eip += 1;
         let modrm = ModRM::parse_modrm(self);
         match unsafe { modrm.reg.opcode } {
+            0 => self.add_rm32_imm8(&modrm),
             5 => self.sub_rm32_imm8(&modrm),
             opcode @ _ => {
                 error!("not implemented: 83 /{}", opcode);
@@ -120,6 +122,13 @@ impl Emulator {
         self.set_rm32(&modrm, rm32 + r32);
     }
 
+    pub fn add_rm32_imm8(&mut self, modrm: &ModRM) {
+        let rm32 = self.get_rm32(modrm);
+        let imm8 = self.get_sign_code8(0) as u32;
+        self.eip += 1;
+        self.set_rm32(modrm, rm32 + imm8);
+    }
+
     pub fn sub_rm32_imm8(&mut self, modrm: &ModRM) {
         let rm32 = self.get_rm32(&modrm);
         let imm8 = self.get_sign_code8(0);
@@ -141,19 +150,72 @@ impl Emulator {
         let diff = self.get_sign_code32(1);
         self.eip = (self.eip as i32 + diff + 5) as u32
     }
+
+    pub fn push_r32(&mut self) {
+        let reg = self.get_code8(0) - 0x50;
+        self.push32(self.get_register32(reg as usize));
+        self.eip += 1;
+    }
+
+    pub fn push_imm32(&mut self) {
+        let value = self.get_code32(1);
+        self.push32(value);
+        self.eip += 5;
+    }
+
+    pub fn push_imm8(&mut self) {
+        let value = self.get_code8(1) as u32;
+        self.push32(value);
+        self.eip += 2;
+    }
+
+    pub fn pop_r32(&mut self) {
+        let reg = self.get_code8(0) - 0x58;
+        let value = self.pop32();
+        self.set_register32(reg as usize, value);
+        self.eip += 1;
+    }
+
+    pub fn call_rel32(&mut self) {
+        let diff = self.get_sign_code32(1);
+        self.push32(self.eip + 5);
+        self.eip = (self.eip as i32 + diff + 5) as u32;
+    }
+
+    pub fn ret(&mut self) {
+        self.eip = self.pop32();
+    }
+
+    pub fn leave(&mut self) {
+        self.set_register32(Register::ESP as usize, self.get_register32(Register::EBP as usize));
+        let value = self.pop32();
+        self.set_register32(Register::EBP as usize, value);
+        self.eip += 1;
+    }
 }
 
 pub fn init_instructions() -> Vec<Option<fn(&mut Emulator)>> {
     let mut instructions: Vec<Option<fn(&mut Emulator)>> = (0..256).map(|_| None).collect();
 
     instructions[0x01] = Some(Emulator::add_rm32_r32);
+    for i in 0..8 {
+        instructions[0x50 + i] = Some(Emulator::push_r32);
+    }
+    for i in 0..8 {
+        instructions[0x58 + i] = Some(Emulator::pop_r32);
+    }
+    instructions[0x68] = Some(Emulator::push_imm32);
+    instructions[0x6A] = Some(Emulator::push_imm8);
     instructions[0x83] = Some(Emulator::code_83);
     instructions[0x89] = Some(Emulator::mov_rm32_r32);
     instructions[0x8B] = Some(Emulator::mov_r32_rm32);
     for i in 0..8 {
         instructions[0xB8 + i] = Some(Emulator::mov_r32_imm32);
     }
+    instructions[0xC3] = Some(Emulator::ret);
     instructions[0xC7] = Some(Emulator::mov_rm32_imm32);
+    instructions[0xC9] = Some(Emulator::leave);
+    instructions[0xE8] = Some(Emulator::call_rel32);
     instructions[0xE9] = Some(Emulator::near_jump);
     instructions[0xEB] = Some(Emulator::short_jump);
     instructions[0xFF] = Some(Emulator::code_ff);

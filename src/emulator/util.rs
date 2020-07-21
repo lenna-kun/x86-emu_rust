@@ -120,4 +120,17 @@ impl Emulator {
     pub fn set_memory32(&mut self, address: usize, value: u32) {
         (0..4).for_each(|i| self.set_memory8(address + i, ((value >> (i * 8)) & 0xff) as u8));
     }
+
+    pub fn push32(&mut self, value: u32) {
+        let address = self.get_register32(Register::ESP as usize) - 4;
+        self.set_register32(Register::ESP as usize, address);
+        self.set_memory32(address as usize, value);
+    }
+
+    pub fn pop32(&mut self) -> u32 {
+        let address = self.get_register32(Register::ESP as usize);
+        let ret = self.get_memory32(address as usize);
+        self.set_register32(Register::ESP as usize, address + 4);
+        ret
+    }
 }
